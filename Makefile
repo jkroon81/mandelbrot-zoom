@@ -3,7 +3,7 @@ NAME		= mandelbrot-zoom
 VERSION		= 0.2.0
 CC		= gcc
 CFLAGS		+= -D_VERSION=\"$(VERSION)\" $(shell sdl-config --cflags) \
-		  -march=athlon -O2 -g -Wall -Werror -D_DEBUG
+		   -O2 -g -Wall -Werror -D_DEBUG
 LDFLAGS		= $(shell sdl-config --libs) -lm
 
 #############################################################

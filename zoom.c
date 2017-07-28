@@ -5,16 +5,14 @@
 /* functions */
 SDL_Surface *zoom(SDL_Surface * orig, float factor, int cx, int cy)
 {
-  int x, y, sx, ex, sy, ey, xp, yp;
+  int x, y, sx, sy, xp, yp;
   SDL_Surface *surface;
 
   surface =
     SDL_CreateRGBSurface(SDL_SWSURFACE, orig->w, orig->h, 8, 0, 0, 0, 0);
   SDL_SetPalette(surface, SDL_LOGPAL, orig->format->palette->colors, 0, 256);
   sx = cx - cx * factor;
-  ex = cx + (orig->w - cx) * factor;
   sy = cy - cy * factor;
-  ey = cy + (orig->h - cy) * factor;
   if (SDL_MUSTLOCK(surface))
     SDL_LockSurface(surface);
   if (SDL_MUSTLOCK(orig))
