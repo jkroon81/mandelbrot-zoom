@@ -5,7 +5,7 @@
 #include <SDL/SDL.h>
 
 /* defines */
-#define TITLE "Mandelbrot-Zoom v" _VERSION
+#define TITLE "Mandelbrot-Zoom"
 
 /* typedefs */
 typedef float FLOAT;
