@@ -102,9 +102,11 @@ int main(void)
 	while (loop) {
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
-			case SDL_MOUSEBUTTONDOWN:
+			case SDL_MOUSEMOTION:
 				px = event.motion.x;
 				py = event.motion.y;
+				break;
+			case SDL_MOUSEBUTTONDOWN:
 				switch (event.button.button) {
 				case SDL_BUTTON_LEFT:
 					zoom_factor = 0.999;
