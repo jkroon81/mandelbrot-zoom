@@ -1,5 +1,5 @@
 cc      := gcc
-ccflags := $(shell pkgconf sdl2 --cflags) -O2 -Wall -Werror
+ccflags := $(shell pkgconf sdl2 --cflags) -O2 -Wall -Werror -fopenmp
 ldflags := $(shell pkgconf sdl2 --libs) -lm
 
 all : mandelbrot-zoom

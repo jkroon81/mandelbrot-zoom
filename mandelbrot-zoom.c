@@ -35,11 +35,13 @@ static Uint8 eval_point(int x, int y)
 static void mandelbrot_render(Uint8 *data, int pitch)
 {
 	int x, y;
+	Uint32 *p;
 
+#pragma omp parallel for private(x,y) shared(data, pitch, p)
 	for (x = 0; x < width; x++)
 		for (y = 0; y < height; y++) {
 			Uint8 val = eval_point(x, y);
-			Uint32 *p = (Uint32*)(data + pitch * y + x * 4);
+			p = (Uint32*)(data + pitch * y + x * 4);
 			*p = val | val << 8 | val << 16;
 		}
 }
