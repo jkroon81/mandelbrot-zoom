@@ -31,21 +31,16 @@ static Uint8 eval_point(int x, int y)
 	return i;
 }
 
-static void mandelbrot_render(SDL_Surface *frame)
+static void mandelbrot_render(Uint8 *data, int pitch)
 {
 	int x, y;
 
-	if (SDL_MUSTLOCK(frame))
-		SDL_LockSurface(frame);
-	for (x = 0; x < frame->w; x++)
-		for (y = 0; y < frame->h; y++) {
+	for (x = 0; x < width; x++)
+		for (y = 0; y < height; y++) {
 			Uint8 val = eval_point(x, y);
-			Uint32 *p = (Uint32*)((Uint8*)frame->pixels +
-			            frame->pitch * y + x * 4);
+			Uint32 *p = (Uint32*)(data + pitch * y + x * 4);
 			*p = val | val << 8 | val << 16;
 		}
-	if (SDL_MUSTLOCK(frame))
-		SDL_UnlockSurface(frame);
 }
 
 static SDL_Window *_screen = NULL;
@@ -61,13 +56,13 @@ static void error(char *format, ...)
 
 int main(void)
 {
-	int loop = 1, px = 0, py = 0;
+	int loop = 1, px = 0, py = 0, pitch;
 	double zoom_factor = 1.0, p2x, p2y;
 	char title[256];
 	SDL_Event event;
 	SDL_Renderer *rdr;
 	SDL_Texture *txt;
-	SDL_Surface *frame;
+	Uint8 *frame;
 
 	xmin = -1.0;
 	xmax = 1.0;
@@ -95,13 +90,12 @@ int main(void)
 	                        height);
 	if (txt == NULL)
 		error("SDL: %s\n", SDL_GetError());
-	frame = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 32,
-	                             0xff000000,
-	                             0x00ff0000,
-	                             0x0000ff00,
-	                             0x000000ff);
-	mandelbrot_render(frame);
-	SDL_UpdateTexture(txt, NULL, frame->pixels, frame->pitch);
+	pitch = width * 4;
+	frame = malloc(height * pitch);
+	if (frame == NULL)
+		error("Error allocating frame\n");
+	mandelbrot_render(frame, pitch);
+	SDL_UpdateTexture(txt, NULL, frame, pitch);
 	SDL_RenderClear(rdr);
 	SDL_RenderCopy(rdr, txt, NULL, NULL);
 	SDL_RenderPresent(rdr);
@@ -127,11 +121,8 @@ int main(void)
 				xmax = p2x - zoom_factor * (p2x - xmax);
 				ymin = p2y - zoom_factor * (p2y - ymin);
 				ymax = p2y - zoom_factor * (p2y - ymax);
-				mandelbrot_render(frame);
-				SDL_UpdateTexture(txt,
-				                  NULL,
-				                  frame->pixels,
-				                  frame->pitch);
+				mandelbrot_render(frame, pitch);
+				SDL_UpdateTexture(txt, NULL, frame, pitch);
 				SDL_RenderClear(rdr);
 				SDL_RenderCopy(rdr, txt, NULL, NULL);
 				SDL_RenderPresent(rdr);
