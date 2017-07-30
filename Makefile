@@ -1,6 +1,6 @@
 cc      := gcc
-ccflags := $(shell sdl-config --cflags) -O2 -Wall -Werror
-ldflags := $(shell sdl-config --libs) -lm
+ccflags := $(shell pkgconf sdl2 --cflags) -O2 -Wall -Werror
+ldflags := $(shell pkgconf sdl2 --libs) -lm
 
 src := $(sort $(wildcard *.c))
 

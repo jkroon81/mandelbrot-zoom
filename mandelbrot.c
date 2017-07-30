@@ -51,8 +51,11 @@ void mandelbrot_render(SDL_Surface * frame, FLOAT xmin, FLOAT xmax,
   if (SDL_MUSTLOCK(frame))
     SDL_LockSurface(frame);
   for (x = 0; x < frame->w; x++)
-    for (y = 0; y < frame->h; y++)
-      ((Uint8 *) frame->pixels)[x + frame->pitch * y] = eval_point(x, y);
+    for (y = 0; y < frame->h; y++) {
+      Uint8 val = eval_point(x, y);
+      Uint32 *p = (Uint32*)((Uint8*)frame->pixels + frame->pitch * y + x * 4);
+      *p = val | val << 8 | val << 16;
+    }
   if (SDL_MUSTLOCK(frame))
     SDL_UnlockSurface(frame);
 }
