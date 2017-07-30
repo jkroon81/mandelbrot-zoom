@@ -1,7 +1,5 @@
 /* Copyright (C) 2003 Jacob Kroon, see COPYING for details */
 
-#include <stdlib.h>
-#include <string.h>
 #include <SDL/SDL_video.h>
 
 /* defines */
@@ -44,15 +42,12 @@ void mandelbrot_render(SDL_Surface * frame, FLOAT xmin, FLOAT xmax,
 		       FLOAT ymin, FLOAT ymax)
 {
   int x, y;
-  Uint8 *map;
 
   _frame = frame;
   _xmin = xmin;
   _xmax = xmax;
   _ymin = ymin;
   _ymax = ymax;
-  map = (Uint8 *) malloc(frame->w * frame->h);
-  memset(map, 0, frame->w * frame->h);
   if (SDL_MUSTLOCK(frame))
     SDL_LockSurface(frame);
   for (x = 0; x < frame->w; x++)
@@ -60,5 +55,4 @@ void mandelbrot_render(SDL_Surface * frame, FLOAT xmin, FLOAT xmax,
       ((Uint8 *) frame->pixels)[x + frame->pitch * y] = eval_point(x, y);
   if (SDL_MUSTLOCK(frame))
     SDL_UnlockSurface(frame);
-  free(map);
 }
