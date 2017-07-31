@@ -66,6 +66,17 @@ static Uint32 render_cb(Uint32 interval, void *param)
 	return interval;
 }
 
+static SDL_sem *render_sem;
+
+static int render_thread(void *param)
+{
+	while(1) {
+		SDL_SemWait(render_sem);
+		printf("Rendering\n");
+	}
+	return 0;
+}
+
 int main(void)
 {
 	int px = 0, py = 0, pitch;
@@ -84,6 +95,10 @@ int main(void)
 	ymax = 1.0;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+		error("SDL : %s\n", SDL_GetError());
+	render_sem = SDL_CreateSemaphore(0);
+	SDL_CreateThread(render_thread, "render-thread", NULL);
+	if (render_sem == NULL)
 		error("SDL : %s\n", SDL_GetError());
 	if ((_screen = SDL_CreateWindow(TITLE,
 	                                SDL_WINDOWPOS_UNDEFINED,
@@ -165,6 +180,7 @@ int main(void)
 			SDL_RenderPresent(rdr);
 			zoom = 1.0;
 			SDL_FlushEvent(SDL_USEREVENT);
+			SDL_SemPost(render_sem);
 			break;
 		}
 	}
