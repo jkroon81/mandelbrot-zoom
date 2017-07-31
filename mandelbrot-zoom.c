@@ -144,6 +144,12 @@ int main(void)
 				continue;
 			SDL_RemoveTimer(render_tid);
 			SDL_FlushEvent(SDL_USEREVENT);
+			break;
+		case SDL_USEREVENT:
+			sprintf(title, TITLE " - Zoom : %.2f",
+			        (2.0 / zoom / (xmax - xmin)));
+			SDL_SetWindowTitle(_screen, title);
+			zoom *= zoom_mul;
 			p2x = (xmax - xmin) / width * px + xmin;
 			p2y = (ymax - ymin) / height * py + ymin;
 			xmin = p2x - zoom * (p2x - xmin);
@@ -156,20 +162,7 @@ int main(void)
 			SDL_RenderCopy(rdr, txt, NULL, NULL);
 			SDL_RenderPresent(rdr);
 			zoom = 1.0;
-			break;
-		case SDL_USEREVENT:
-			sprintf(title, TITLE " - Zoom : %.2f",
-			        (2.0 / zoom / (xmax - xmin)));
-			SDL_SetWindowTitle(_screen, title);
-			SDL_Rect r;
-			zoom *= zoom_mul;
-			r.x = px - px / zoom;
-			r.y = py - py / zoom;
-			r.w = width / zoom;
-			r.h = height / zoom;
-			SDL_RenderClear(rdr);
-			SDL_RenderCopy(rdr, txt, NULL, &r);
-			SDL_RenderPresent(rdr);
+			SDL_FlushEvent(SDL_USEREVENT);
 			break;
 		}
 	}
