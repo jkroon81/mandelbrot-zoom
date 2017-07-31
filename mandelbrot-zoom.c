@@ -3,6 +3,7 @@
 #include <SDL.h>
 
 #define TITLE "Mandelbrot-Zoom"
+#define RENDER_TIME 30
 
 typedef struct {
 	double a, b;
@@ -54,15 +55,26 @@ static void error(char *format, ...)
 	exit(-1);
 }
 
+static Uint32 render_cb(Uint32 interval, void *param)
+{
+	SDL_Event event;
+
+	event.type = SDL_USEREVENT;
+	SDL_PushEvent(&event);
+	return interval;
+}
+
 int main(void)
 {
-	int loop = 1, px = 0, py = 0, pitch;
-	double zoom_factor = 1.0, p2x, p2y;
+	int px = 0, py = 0, pitch;
+	double zoom = 1.0, zoom_mul = 1.0, p2x, p2y;
 	char title[256];
 	SDL_Event event;
 	SDL_Renderer *rdr;
 	SDL_Texture *txt;
 	Uint8 *frame;
+	Uint32 mstate;
+	SDL_TimerID render_tid = 0;
 
 	xmin = -1.0;
 	xmax = 1.0;
@@ -99,74 +111,69 @@ int main(void)
 	SDL_RenderClear(rdr);
 	SDL_RenderCopy(rdr, txt, NULL, NULL);
 	SDL_RenderPresent(rdr);
-	while (loop) {
-		while (SDL_PollEvent(&event)) {
-			switch (event.type) {
-			case SDL_MOUSEMOTION:
-				px = event.motion.x;
-				py = event.motion.y;
+	while (SDL_WaitEvent(&event)) {
+		switch(event.type) {
+		case SDL_MOUSEMOTION:
+			px = event.motion.x;
+			py = event.motion.y;
+			break;
+		case SDL_QUIT:
+			goto out;
+			break;
+		case SDL_MOUSEBUTTONDOWN:
+			switch (event.button.button) {
+			case SDL_BUTTON_LEFT:
+				zoom_mul = 0.97;
 				break;
-			case SDL_MOUSEBUTTONDOWN:
-				switch (event.button.button) {
-				case SDL_BUTTON_LEFT:
-					zoom_factor = 0.999;
-					break;
-				case SDL_BUTTON_RIGHT:
-					zoom_factor = 1.001;
-					break;
-				}
-				break;
-			case SDL_MOUSEBUTTONUP:
-				p2x = (xmax - xmin) / width * px + xmin;
-				p2y = (ymax - ymin) / height * py + ymin;
-				xmin = p2x - zoom_factor * (p2x - xmin);
-				xmax = p2x - zoom_factor * (p2x - xmax);
-				ymin = p2y - zoom_factor * (p2y - ymin);
-				ymax = p2y - zoom_factor * (p2y - ymax);
-				mandelbrot_render(frame, pitch);
-				SDL_UpdateTexture(txt, NULL, frame, pitch);
-				SDL_RenderClear(rdr);
-				SDL_RenderCopy(rdr, txt, NULL, NULL);
-				SDL_RenderPresent(rdr);
-				zoom_factor = 1.0;
-				break;
-			case SDL_QUIT:
-				loop = 0;
+			case SDL_BUTTON_RIGHT:
+				zoom_mul = 1.03;
 				break;
 			}
-		}
-		if (zoom_factor != 1.0) {
-			sprintf(title, TITLE " - Zoom : %.2f",
-			        (2.0 / zoom_factor / (xmax - xmin)));
-			SDL_SetWindowTitle(_screen, title);
-			SDL_Rect src, dst;
-			if (zoom_factor < 1.0) {
-				zoom_factor *= 0.97;
-				src.x = px - px * zoom_factor;
-				src.y = py - py * zoom_factor;
-				src.w = width * zoom_factor;
-				src.h = height * zoom_factor;
-				dst.x = 0;
-				dst.y = 0;
-				dst.w = width;
-				dst.h = height;
-			} else {
-				zoom_factor *= 1.03;
-				src.x = 0;
-				src.y = 0;
-				src.w = width;
-				src.h = height;
-				dst.x = px - px / zoom_factor;
-				dst.y = py - py / zoom_factor;
-				dst.w = width / zoom_factor;
-				dst.h = height / zoom_factor;
-			}
+			SDL_RemoveTimer(render_tid);
+			SDL_FlushEvent(SDL_USEREVENT);
+			render_tid = SDL_AddTimer(RENDER_TIME, render_cb, NULL);
+			break;
+		case SDL_MOUSEBUTTONUP:
+			mstate = SDL_GetMouseState(NULL, NULL);
+			if (mstate & SDL_BUTTON(SDL_BUTTON_LEFT))
+				zoom_mul = 0.97;
+			else if (mstate & SDL_BUTTON(SDL_BUTTON_RIGHT))
+				zoom_mul = 1.03;
+			if (mstate & (SDL_BUTTON(SDL_BUTTON_LEFT) |
+			              SDL_BUTTON(SDL_BUTTON_RIGHT)))
+				continue;
+			SDL_RemoveTimer(render_tid);
+			SDL_FlushEvent(SDL_USEREVENT);
+			p2x = (xmax - xmin) / width * px + xmin;
+			p2y = (ymax - ymin) / height * py + ymin;
+			xmin = p2x - zoom * (p2x - xmin);
+			xmax = p2x - zoom * (p2x - xmax);
+			ymin = p2y - zoom * (p2y - ymin);
+			ymax = p2y - zoom * (p2y - ymax);
+			mandelbrot_render(frame, pitch);
+			SDL_UpdateTexture(txt, NULL, frame, pitch);
 			SDL_RenderClear(rdr);
-			SDL_RenderCopy(rdr, txt, &src, &dst);
+			SDL_RenderCopy(rdr, txt, NULL, NULL);
 			SDL_RenderPresent(rdr);
+			zoom = 1.0;
+			break;
+		case SDL_USEREVENT:
+			sprintf(title, TITLE " - Zoom : %.2f",
+			        (2.0 / zoom / (xmax - xmin)));
+			SDL_SetWindowTitle(_screen, title);
+			SDL_Rect r;
+			zoom *= zoom_mul;
+			r.x = px - px / zoom;
+			r.y = py - py / zoom;
+			r.w = width / zoom;
+			r.h = height / zoom;
+			SDL_RenderClear(rdr);
+			SDL_RenderCopy(rdr, txt, NULL, &r);
+			SDL_RenderPresent(rdr);
+			break;
 		}
-		SDL_Delay(10);
 	}
+out:
 	SDL_Quit();
 	return 0;
 }
