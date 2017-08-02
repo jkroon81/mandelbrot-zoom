@@ -16,6 +16,11 @@ typedef struct {
 	double ymax;
 } RenderArea;
 
+enum {
+	REDRAW,
+	RENDER_FINISHED,
+};
+
 static int width, height;
 
 static Uint8 eval_point(RenderArea *a, int x, int y)
@@ -68,30 +73,34 @@ static Uint32 render_cb(Uint32 interval, void *param)
 	SDL_Event event;
 
 	event.type = SDL_USEREVENT;
+	event.user.code = REDRAW;
 	SDL_PushEvent(&event);
 	return interval;
 }
 
 static SDL_sem *render_sem;
-static Uint8 *frame, *frame_a, *frame_b;
+static Uint8 *frame;
 static RenderArea a_thread;
 static int pitch;
 
 static int render_thread(void *param)
 {
+	SDL_Event event;
+
 	while(1) {
 		SDL_SemWait(render_sem);
-		Uint8 *dst = frame == frame_a ? frame_b : frame_a;
-		mandelbrot_render(&a_thread, dst, pitch);
-		printf("Render done\n");
+		mandelbrot_render(&a_thread, frame, pitch);
+		event.type = SDL_USEREVENT;
+		event.user.code = RENDER_FINISHED;
+		SDL_PushEvent(&event);
 	}
 	return 0;
 }
 
 int main(void)
 {
-	int px = 0, py = 0;
-	double zoom = 1.0, zoom_mul = 1.0, p2x, p2y;
+	int px = 0, py = 0, p2x, p2y;
+	double zoom = 1.0, zoom_mul = 1.0, zoom_thr;
 	char title[256];
 	SDL_Event event;
 	SDL_Renderer *rdr;
@@ -131,13 +140,9 @@ int main(void)
 	if (txt == NULL)
 		error("SDL: %s\n", SDL_GetError());
 	pitch = width * 4;
-	frame_a = malloc(height * pitch);
-	if (frame_a == NULL)
-		error("Error allocating frame a\n");
-	frame_b = malloc(height * pitch);
-	if (frame_b == NULL)
-		error("Error allocating frame b\n");
-	frame = frame_a;
+	frame = malloc(height * pitch);
+	if (frame == NULL)
+		error("Error allocating frame\n");
 	mandelbrot_render(&a, frame, pitch);
 	SDL_UpdateTexture(txt, NULL, frame, pitch);
 	SDL_RenderClear(rdr);
@@ -164,6 +169,14 @@ int main(void)
 			SDL_RemoveTimer(render_tid);
 			SDL_FlushEvent(SDL_USEREVENT);
 			render_tid = SDL_AddTimer(RENDER_TIME, render_cb, NULL);
+			zoom_thr = zoom * pow(zoom_mul, 10);
+			p2x = (a.xmax - a.xmin) / width * px + a.xmin;
+			p2y = (a.ymax - a.ymin) / height * py + a.ymin;
+			a_thread.xmin = p2x - zoom_thr * (p2x - a.xmin);
+			a_thread.xmax = p2x - zoom_thr * (p2x - a.xmax);
+			a_thread.ymin = p2y - zoom_thr * (p2y - a.ymin);
+			a_thread.ymax = p2y - zoom_thr * (p2y - a.ymax);
+			SDL_SemPost(render_sem);
 			break;
 		case SDL_MOUSEBUTTONUP:
 			mstate = SDL_GetMouseState(NULL, NULL);
@@ -178,24 +191,28 @@ int main(void)
 			SDL_FlushEvent(SDL_USEREVENT);
 			break;
 		case SDL_USEREVENT:
-			sprintf(title, TITLE " - Zoom : %.2f",
-			        (2.0 / zoom / (a.xmax - a.xmin)));
-			SDL_SetWindowTitle(_screen, title);
-			zoom *= zoom_mul;
-			p2x = (a.xmax - a.xmin) / width * px + a.xmin;
-			p2y = (a.ymax - a.ymin) / height * py + a.ymin;
-			a.xmin = p2x - zoom * (p2x - a.xmin);
-			a.xmax = p2x - zoom * (p2x - a.xmax);
-			a.ymin = p2y - zoom * (p2y - a.ymin);
-			a.ymax = p2y - zoom * (p2y - a.ymax);
-			mandelbrot_render(&a, frame, pitch);
-			SDL_UpdateTexture(txt, NULL, frame, pitch);
-			SDL_RenderClear(rdr);
-			SDL_RenderCopy(rdr, txt, NULL, NULL);
-			SDL_RenderPresent(rdr);
-			zoom = 1.0;
-			SDL_FlushEvent(SDL_USEREVENT);
-			SDL_SemPost(render_sem);
+			switch(event.user.code) {
+			case REDRAW:
+				sprintf(title, TITLE " - Zoom : %.2f",
+				        (2.0 / zoom / (a.xmax - a.xmin)));
+				SDL_SetWindowTitle(_screen, title);
+				zoom *= zoom_mul;
+				SDL_Rect r;
+				r.x = px - px / zoom;
+				r.y = py - py / zoom;
+				r.w = width / zoom;
+				r.h = height / zoom;
+				SDL_RenderClear(rdr);
+				SDL_RenderCopy(rdr, txt, NULL, &r);
+				SDL_RenderPresent(rdr);
+				break;
+			case RENDER_FINISHED:
+				SDL_UpdateTexture(txt, NULL, frame, pitch);
+				a = a_thread;
+				zoom = 1.0;
+				printf("Render finished\n");
+				break;
+			}
 			break;
 		}
 	}
